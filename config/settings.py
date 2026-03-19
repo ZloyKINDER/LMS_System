@@ -3,6 +3,7 @@ from pathlib import Path
 
 from django.conf.global_settings import MEDIA_URL
 from dotenv import load_dotenv
+from datetime import timedelta
 
 
 load_dotenv()
@@ -22,8 +23,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "django_filters",
-    'users',
-    'materials',
+    "rest_framework_simplejwt",
+    "users",
+    "materials",
 ]
 
 MIDDLEWARE = [
@@ -98,7 +100,15 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 AUTH_USER_MODEL = 'users.User'
 
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ]
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }

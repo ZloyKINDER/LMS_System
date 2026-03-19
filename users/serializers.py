@@ -1,18 +1,16 @@
 from rest_framework import serializers
-from .models import User, Payment
-from materials.serializers import CourseSerializer, LessonSerializer
+from .models import User, Payment, Subscription
+from materials.serializers import CourseSerializer
 
 
-class PaymentSerializer(serializers.ModelSerializer):
-    user_email = serializers.ReadOnlyField(source='user.email')
-    course_title = serializers.ReadOnlyField(source='paid_course.title', default=None)
-    lesson_title = serializers.ReadOnlyField(source='paid_lesson.title', default=None)
+class SubscriptionSerializer(serializers.ModelSerializer):
+    course_title = serializers.ReadOnlyField(source='course.title')
 
     class Meta:
-        model = Payment
-        fields = ['id', 'user', 'user_email', 'payment_date', 'paid_course', 'paid_lesson',
-                  'course_title', 'lesson_title', 'amount', 'payment_method']
-        read_only_fields = ['id', 'payment_date']
+        model = Subscription
+        fields = ['id', 'user', 'course', 'course_title', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,25 +21,24 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserDetailSerializer(serializers.ModelSerializer):
     payments = serializers.SerializerMethodField()
+    subscriptions = SubscriptionSerializer(many=True, read_only=True)
     total_spent = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'city', 'avatar',
-                  'payments', 'total_spent']
+                  'payments', 'subscriptions', 'total_spent']
         read_only_fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'city', 'avatar']
 
     def get_payments(self, obj):
-        # Только для своего профиля показываем платежи
+        from .serializers import PaymentSerializer
         request = self.context.get('request')
         if request and request.user == obj:
-            from .serializers import PaymentSerializer
             payments = obj.payments.all()
             return PaymentSerializer(payments, many=True).data
         return []
 
     def get_total_spent(self, obj):
-        # Только для своего профиля показываем сумму
         request = self.context.get('request')
         if request and request.user == obj:
             return sum(payment.amount for payment in obj.payments.all())
@@ -49,10 +46,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 
 class UserPublicSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для публичного просмотра профилей
-    """
-
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'city', 'avatar']

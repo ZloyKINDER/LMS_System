@@ -9,9 +9,12 @@ from .models import User, Payment, Subscription
 from materials.models import Course
 from .serializers import (
     UserSerializer, UserDetailSerializer, UserPublicSerializer,
-    PaymentSerializer, UserRegistrationSerializer, SubscriptionSerializer
+    PaymentSerializer, UserRegistrationSerializer, SubscriptionSerializer,
+    PaymentCreateSerializer
 )
 from .permissions import IsOwner
+from payment.services import StripeService
+from django.conf import settings
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -106,3 +109,74 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 {"message": "Подписка добавлена", "is_subscribed": True},
                 status=status.HTTP_201_CREATED
             )
+
+
+class PaymentCreateView(generics.CreateAPIView):
+    """
+    Создание платежа с интеграцией Stripe
+    """
+    serializer_class = PaymentCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        payment = serializer.save(user=self.request.user)
+
+        # Получаем название и описание продукта
+        if payment.paid_course:
+            product_name = payment.paid_course.title
+            product_description = payment.paid_course.description
+        else:
+            product_name = payment.paid_lesson.title
+            product_description = payment.paid_lesson.description
+
+        # Создаем продукт в Stripe
+        stripe_product = StripeService.create_product(
+            name=product_name,
+            description=product_description
+        )
+        payment.stripe_product_id = stripe_product.id
+
+        # Создаем цену в Stripe
+        stripe_price = StripeService.create_price(
+            product_id=stripe_product.id,
+            amount=payment.amount
+        )
+        payment.stripe_price_id = stripe_price.id
+
+        # Создаем сессию оплаты
+        success_url = f"{settings.FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{settings.FRONTEND_URL}/payment/cancel"
+
+        stripe_session = StripeService.create_checkout_session(
+            price_id=stripe_price.id,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            client_reference_id=payment.id
+        )
+
+        payment.stripe_session_id = stripe_session.id
+        payment.payment_url = stripe_session.url
+        payment.save()
+
+
+class PaymentStatusView(generics.RetrieveAPIView):
+    """
+    Проверка статуса платежа
+    """
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Payment.objects.filter(user=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        payment = self.get_object()
+
+        # Получаем актуальный статус из Stripe
+        if payment.stripe_session_id:
+            session = StripeService.retrieve_session(payment.stripe_session_id)
+            payment.payment_status = session.payment_status
+            payment.save()
+
+        return super().retrieve(request, *args, **kwargs)

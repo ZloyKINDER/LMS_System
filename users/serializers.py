@@ -60,8 +60,9 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'user', 'user_email', 'payment_date', 'paid_course', 'paid_lesson',
-                  'course_title', 'lesson_title', 'amount', 'payment_method']
-        read_only_fields = ['id', 'payment_date']
+                  'course_title', 'lesson_title', 'amount', 'payment_method',
+                  'payment_url', 'stripe_session_id', 'payment_status']
+        read_only_fields = ['id', 'payment_date', 'payment_url', 'stripe_session_id', 'payment_status']
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -85,3 +86,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class PaymentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ['id', 'paid_course', 'paid_lesson', 'amount', 'payment_method',
+                  'payment_url', 'stripe_session_id', 'payment_status']
+        read_only_fields = ['id', 'payment_url', 'stripe_session_id', 'payment_status']
+
+    def validate(self, data):
+        # Проверяем, что указан либо курс, либо урок
+        if not data.get('paid_course') and not data.get('paid_lesson'):
+            raise serializers.ValidationError("Необходимо указать либо курс, либо урок для оплаты")
+        return data

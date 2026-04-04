@@ -7,10 +7,12 @@ class Course(models.Model):
     description = models.TextField(verbose_name='Описание', blank=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                               related_name='courses', verbose_name='Владелец', null=True, blank=True)
+    last_notification_time = models.DateTimeField(null=True, blank=True, verbose_name='Время последнего уведомления')
 
     class Meta:
         verbose_name = 'Курс'
         verbose_name_plural = 'Курсы'
+        ordering = ['id']
 
     def __str__(self):
         return self.title

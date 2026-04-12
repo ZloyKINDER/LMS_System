@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,6 +8,8 @@ from .models import Course, Lesson
 from .serializers import CourseSerializer, LessonSerializer
 from .paginators import CoursePaginator, LessonPaginator
 from users.permissions import IsModerator, IsOwner, IsOwnerOrReadOnly
+from django.utils import timezone
+from users.tasks import notify_course_subscribers, logger
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -35,6 +39,37 @@ class CourseViewSet(viewsets.ModelViewSet):
                 return Course.objects.all()
             return Course.objects.all()  # Все курсы видны всем, но права на редактирование ограничены
         return Course.objects.none()
+
+    def perform_update(self, serializer):
+        """При обновлении курса отправляем уведомления подписчикам"""
+        instance = self.get_object()
+        old_title = instance.title
+
+        # Сохраняем обновление
+        updated_course = serializer.save()
+
+        # Получаем время последнего обновления (можно хранить в модели)
+        last_update = getattr(instance, 'last_update_time', None)
+        now = timezone.now()
+
+        # Проверяем, прошло ли более 4 часов с последнего уведомления
+        should_notify = True
+        if last_update:
+            time_diff = now - last_update
+            if time_diff < timedelta(hours=4):
+                should_notify = False
+                logger.info(f'Course {updated_course.id} updated within 4 hours, skipping notification')
+
+        # Отправляем уведомления, если курс обновлен и прошло более 4 часов
+        if should_notify:
+            notify_course_subscribers.delay(
+                course_id=updated_course.id,
+                course_title=updated_course.title,
+                last_update_time=now.isoformat()
+            )
+            # Обновляем время последнего уведомления
+            updated_course.last_notification_time = now
+            updated_course.save(update_fields=['last_notification_time'])
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

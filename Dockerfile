@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     libpq-dev \
-    curl \
+    nginx \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Установка Poetry
@@ -28,15 +29,24 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Копирование остального проекта
 COPY . .
 
+# Копирование конфигурации Nginx
+COPY nginx.conf /etc/nginx/sites-available/default
+
+# Копирование конфигурации Supervisor
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 # Создание директорий для статики и медиа
-RUN mkdir -p /app/static /app/media
+RUN mkdir -p /app/static /app/media /app/logs
+
+# Сбор статики
+RUN python manage.py collectstatic --noinput
 
 # Настройка переменных окружения
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=config.settings
 
-# Открываем порт
-EXPOSE 8000
+# Открываем порты
+EXPOSE 80
 
-# Запуск приложения
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Запуск Supervisor (который запустит Gunicorn, Nginx, Celery)
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

@@ -204,3 +204,10 @@ __marimo__/
 
 reports/
 test_report.json
+
+# Docker
+*.pid
+
+# Redis
+*.rdb
+*.aof

@@ -41,7 +41,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     - name: Install Poetry
       run: |
@@ -84,18 +84,36 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-    - name: Deploy to Server
+    - name: Copy files to server
+      run: |
+        rsync -avz --delete --exclude='.git' --exclude='.venv' --exclude='__pycache__' --exclude='*.pyc' --exclude='.env' ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/lms_project/
+
+    - name: Deploy with Docker
       run: |
         ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
           cd ~/lms_project
-          git pull origin main
-          source venv/bin/activate
-          poetry config virtualenvs.create false
-          poetry install --no-interaction --no-ansi --no-root
-          python manage.py migrate
-          python manage.py collectstatic --noinput
-          sudo supervisorctl restart lms
-          sudo supervisorctl restart celery
-          sudo supervisorctl restart celery-beat
-          sudo systemctl restart nginx
+          
+          # Создаем .env файл из секретов
+          cat > .env << EOL
+          SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+          DEBUG=False
+          ALLOWED_HOSTS=${{ secrets.ALLOWED_HOSTS }}
+          DB_NAME=lms_db
+          DB_USER=postgres
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=db
+          DB_PORT=5432
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          EOL
+          
+          # Запускаем контейнеры
+          docker-compose down
+          docker-compose up -d --build
+          
+          # Очищаем старые образы
+          docker system prune -f
+          
+          # Проверяем статус
+          docker-compose ps
         EOF

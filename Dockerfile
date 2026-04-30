@@ -24,13 +24,16 @@ RUN poetry install --no-interaction --no-ansi --no-root
 # Копирование проекта
 COPY . .
 
-# Создание директорий
-RUN mkdir -p /app/static /app/media
+# Устанавливаем SECRET_KEY для сборки статики
+ENV SECRET_KEY=dummy-key-for-build-only
+ENV DEBUG=False
+ENV ALLOWED_HOSTS=*
 
-# Сбор статики
+# Создание директорий и сбор статики
+RUN mkdir -p /app/static /app/media /app/logs
 RUN python manage.py collectstatic --noinput
 
-# Настройка переменных окружения
+# Настройка переменных окружения (будут переопределены при запуске)
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=config.settings
 

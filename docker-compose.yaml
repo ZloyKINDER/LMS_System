@@ -55,6 +55,9 @@ services:
     environment:
       - DB_HOST=db
       - REDIS_HOST=redis
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
     networks:
       - lms_network
 
@@ -73,6 +76,8 @@ services:
     environment:
       - DB_HOST=db
       - REDIS_HOST=redis
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
     networks:
       - lms_network
 
@@ -93,6 +98,8 @@ services:
     environment:
       - DB_HOST=db
       - REDIS_HOST=redis
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
     networks:
       - lms_network
 

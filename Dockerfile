@@ -24,13 +24,15 @@ RUN poetry install --no-interaction --no-ansi --no-root
 # Копирование проекта
 COPY . .
 
+# Создание всех необходимых директорий
+RUN mkdir -p /app/static /app/media /app/logs
+
 # Устанавливаем SECRET_KEY для сборки статики
 ENV SECRET_KEY=dummy-key-for-build-only
 ENV DEBUG=False
 ENV ALLOWED_HOSTS=*
 
-# Создание директорий и сбор статики
-RUN mkdir -p /app/static /app/media /app/logs
+# Cбор статики
 RUN python manage.py collectstatic --noinput
 
 # Настройка переменных окружения (будут переопределены при запуске)

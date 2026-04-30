@@ -1,10 +1,10 @@
 import multiprocessing
 
-bind = "unix:/home/test/lms_project/lms.sock"
+bind = "0.0.0.0:8000"
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "sync"
 timeout = 120
 graceful_timeout = 30
-accesslog = "/home/test/lms_project/logs/gunicorn-access.log"
-errorlog = "/home/test/lms_project/logs/gunicorn-error.log"
+accesslog = "/app/logs/gunicorn-access.log"
+errorlog = "/app/logs/gunicorn-error.log"
 loglevel = "info"

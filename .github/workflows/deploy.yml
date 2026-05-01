@@ -43,6 +43,11 @@ jobs:
       with:
         python-version: '3.13'
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpq-dev gcc
+
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
@@ -55,33 +60,25 @@ jobs:
 
     - name: Create .env file for tests
       run: |
-        echo "SECRET_KEY=test-secret-key-12345" >> .env
-        echo "DEBUG=True" >> .env
-        echo "ALLOWED_HOSTS=localhost" >> .env
-        echo "DB_NAME=lms_test" >> .env
-        echo "DB_USER=test_user" >> .env
-        echo "DB_PASSWORD=test_pass" >> .env
-        echo "DB_HOST=localhost" >> .env
-        echo "DB_PORT=5432" >> .env
-        echo "REDIS_HOST=localhost" >> .env
-        echo "REDIS_PORT=6379" >> .env
+        cat > .env << EOF
+        SECRET_KEY=test-secret-key-for-actions-12345
+        DEBUG=True
+        ALLOWED_HOSTS=localhost
+        DB_ENGINE=django.db.backends.postgresql
+        DB_NAME=lms_test
+        DB_USER=test_user
+        DB_PASSWORD=test_pass
+        DB_HOST=localhost
+        DB_PORT=5432
+        REDIS_HOST=localhost
+        REDIS_PORT=6379
+        EOF
+        cat .env
 
     - name: Run migrations
-      env:
-        DB_NAME: lms_test
-        DB_USER: test_user
-        DB_PASSWORD: test_pass
-        DB_HOST: localhost
-        DB_PORT: 5432
       run: python manage.py migrate
 
     - name: Run tests
-      env:
-        DB_NAME: lms_test
-        DB_USER: test_user
-        DB_PASSWORD: test_pass
-        DB_HOST: localhost
-        DB_PORT: 5432
       run: python manage.py test materials.tests --verbosity=2
 
   deploy:

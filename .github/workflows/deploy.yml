@@ -53,12 +53,26 @@ jobs:
         poetry config virtualenvs.create false
         poetry install --no-interaction --no-ansi --no-root
 
+    - name: Create .env file for tests
+      run: |
+        echo "SECRET_KEY=test-secret-key-12345" >> .env
+        echo "DEBUG=True" >> .env
+        echo "ALLOWED_HOSTS=localhost" >> .env
+        echo "DB_NAME=lms_test" >> .env
+        echo "DB_USER=test_user" >> .env
+        echo "DB_PASSWORD=test_pass" >> .env
+        echo "DB_HOST=localhost" >> .env
+        echo "DB_PORT=5432" >> .env
+        echo "REDIS_HOST=localhost" >> .env
+        echo "REDIS_PORT=6379" >> .env
+
     - name: Run migrations
       env:
         DB_NAME: lms_test
         DB_USER: test_user
         DB_PASSWORD: test_pass
         DB_HOST: localhost
+        DB_PORT: 5432
       run: python manage.py migrate
 
     - name: Run tests
@@ -67,6 +81,7 @@ jobs:
         DB_USER: test_user
         DB_PASSWORD: test_pass
         DB_HOST: localhost
+        DB_PORT: 5432
       run: python manage.py test materials.tests --verbosity=2
 
   deploy:
@@ -91,8 +106,8 @@ jobs:
           git fetch origin
           git checkout feature/home_work_35_2
           git pull origin feature/home_work_35_2
-          docker-compose down
-          docker-compose up -d --build
+          docker compose down
+          docker compose up -d --build
           docker system prune -f
           echo "Deployment completed!"
         EOF
